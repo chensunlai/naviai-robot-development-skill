@@ -1,0 +1,4 @@
+interface:
+  display_name: "NAVIAI 开发参考"
+  short_description: "自包含的 NAVIAI 架构、接口、开发规范与工具参考"
+  default_prompt: "使用 $naviai-robot-development 的内置资料查询机器人架构、接口和开发方法。"
