@@ -31,6 +31,8 @@ description: NAVIAI 机器人自包含本机知识与开发参考。用于快速
 
 本 Skill 不包含工具脚本。在原 Orin 宿主机上，Docker 和 ROS 操作优先使用 `/home/naviai/Desktop/Tools` 中经 `command -v` 确认可用的工具；无对应工具时再用原生命令。详见 `references/commands.md`。
 
+Skill 根目录可能包含 `naviai_env.md`，它是机器连接信息的唯一来源。询问或需要连接信息时先读取该文件；若不存在，直接请用户提供并放到 Skill 根目录，不得搜索或推断其他线索。
+
 ## 使用原则
 
 - 回答用户实际询问的层级；单个接口查询无需展开整机上手流程。
