@@ -29,7 +29,7 @@ description: NAVIAI 机器人自包含本机知识与开发参考。用于快速
 | 典型信息与开发轨迹 | `references/typical-trajectories.md` |
 | 迁移边界和快照说明 | `references/portability.md` |
 
-本 Skill 不包含工具脚本。`naviai_*`、`llm_*`、`nviz` 和 `setup` 等自定义命令仅属于原 Orin 宿主机；在迁移机器或容器中不得假定它们存在。只有当前 shell 位于该宿主机且 `command -v <tool>` 确认成功时，才按 `references/commands.md` 使用。
+本 Skill 不包含工具脚本。在原 Orin 宿主机上，Docker 和 ROS 操作优先使用 `/home/naviai/Desktop/Tools` 中经 `command -v` 确认可用的工具；无对应工具时再用原生命令。详见 `references/commands.md`。
 
 ## 使用原则
 

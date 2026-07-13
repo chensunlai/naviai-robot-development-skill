@@ -7,8 +7,8 @@ This page documents custom commands installed on the original Orin host under `/
 | Category | Typical Commands | Meaning |
 |---|---|---|
 | Read-only query | `docker ps`, `docker top`, `naviai_topic info` | Inspect state without intentionally changing files or robot state |
-| State change | `naviai_hosts`, mapping/map-selection tools, Service/Action controls, container start/stop | Modify files, containers, or robot runtime state |
-| Data deletion | `llm_remove_pkg` | Delete a project together with its data, models, and results |
+| State change | `naviai_hosts`, `naviai_container create`, mapping/map-selection tools, Service/Action controls, container start/stop | Modify files, containers, or robot runtime state |
+| Data deletion | `llm_remove_pkg`, `naviai_container remove` | Delete project data or a selected non-official container |
 
 `docker exec`, `naviai_enter`, and `naviai_service` are not inherently read-only or state-changing. Their effect depends on the command or Service used afterward.
 
@@ -43,8 +43,27 @@ Typical new-project command: run `cd /home/naviai/Desktop/Project`, then `llm_cr
 | `naviai_copy -r <container> <container-path> <local-path>` | Copy from the container to the host with `docker cp` |
 | `naviai_hosts ls` | List every container name and state |
 | `naviai_hosts <container>` | Add `jzrobot-a` and `pico.zjrx.com` entries to the container `/etc/hosts` |
+| `naviai_container create <name> [ssh_port]` | Create and start one blank development container from the exact local image used by `naviai_demos`; omit `ssh_port` to select a currently unused random port from `20000-65535` |
+| `naviai_container remove <container>` | Force-remove exactly one named non-official container; an official container is rejected even when addressed by container ID |
 
-These tools reuse existing containers; they do not create new ones. `naviai_hosts` skips a hostname that already exists and does not validate or correct its IP. Changes disappear when the container is recreated. Use Compose `extra_hosts` for a persistent application container.
+`naviai_enter`, `naviai_copy`, and `naviai_hosts` reuse existing containers. `naviai_hosts` skips a hostname that already exists and does not validate or correct its IP. Changes disappear when the container is recreated. Use Compose `extra_hosts` for a persistent application container.
+
+`naviai_container create` has these implementation boundaries:
+
+- It reads the image name and image ID from the current `naviai_demos` container, verifies that the same image is still available locally, and runs with `--pull never`. It neither builds nor downloads an image.
+- It uses the image's built-in Ubuntu 20.04 environment, root account, sshd, and supervisor. It runs with host networking, the NVIDIA runtime, privileged mode, the robot hostname mappings, and the observed ROS master and host IP values.
+- With no port argument it selects a currently non-listening random host port in `20000-65535`; an explicit port remains supported. The selected port becomes sshd's actual listen port because host networking does not use Docker port publishing.
+- The resulting command is `ssh -p <selected-port> root@localhost`. Authentication state comes from the `naviai_demos` image; the helper does not create a new password or SSH key.
+- The container uses `restart: unless-stopped`. A failed sshd startup is treated transactionally: the helper prints recent logs and removes only the failed new container.
+
+`naviai_container remove` resolves the supplied name or ID to the container's current canonical name, refuses names in its protected official snapshot, and then calls `docker rm --force` for that one container. The snapshot includes all containers present when the snapshot was taken, including exited `test_rosenv`: `naviai_chassis`, `naviai_demos`, `naviai_map_server`, `naviai_navbrain_ros`, `naviai_navigation`, `naviai_novnc`, `naviai_nviz`, `naviai_perception`, `naviai_robot`, `naviai_robot_viewer`, `naviai_rosbridge`, `naviai_sensor`, `naviai_sensor_lidar`, and `test_rosenv`. It has no bulk-delete command.
+
+Useful companion queries:
+
+```bash
+naviai_container list       # show all containers and official protection state
+naviai_container official   # print the protected snapshot
+```
 
 ## ROS Queries
 
