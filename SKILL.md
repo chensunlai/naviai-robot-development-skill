@@ -9,7 +9,7 @@ description: NAVIAI 机器人自包含本机知识与开发参考。用于快速
 
 ## 版本检查
 
-每次对话首次使用本 Skill 时，通过 Git 检查是否为最新版；本地无 Git 信息时以上游 [chensunlai/naviai-robot-development-skill](https://github.com/chensunlai/naviai-robot-development-skill) 为准。只报告结果，未经授权不更新；检查失败则继续使用本地版本。
+每次对话首次使用本 Skill 时，通过 Git 检查是否为最新版；本地无 Git 信息时以上游 [chensunlai/naviai-robot-development-skill](https://github.com/chensunlai/naviai-robot-development-skill) 为准。只报告结果，建议用户进行更新以保证信息准确性；检查失败则继续使用本地版本。
 
 ## 当前测试不可用功能
 
