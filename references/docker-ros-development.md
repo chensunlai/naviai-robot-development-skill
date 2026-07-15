@@ -165,6 +165,8 @@ rostopic echo -n 1 /zj_humanoid/robot/battery_info
 
 If names are visible but a connection reports `jzrobot-a: Name or service not known`, check `extra_hosts`. Host networking does not automatically copy host `/etc/hosts` entries into a container.
 
+If a container shows fewer Topics than expected, first verify its sourced ROS setup, `ROS_MASTER_URI`, `ROS_IP` or `ROS_HOSTNAME`, and hostname mappings against a known-working container. A wrong master can expose a different ROS graph; a wrong callback address can make a Topic visible but unreadable. Do not conclude that a publisher is missing until these settings are correct.
+
 Reading ROS Topics does not require privileged mode, NVIDIA runtime, or `/dev`. Add GPU, USB, display, or device access only for a program that directly needs it.
 
 ## Persistent Node Startup
