@@ -7,6 +7,14 @@ description: NAVIAI 机器人自包含本机知识与开发参考。用于快速
 
 把本 Skill 作为可迁移的 NAVIAI 知识包。按问题选取相关 reference，提供已记录事实、可选方案和典型轨迹；轨迹用于说明常见组合，不表示唯一流程。
 
+## 版本检查
+
+每次对话首次使用本 Skill 时，通过 Git 检查是否为最新版；本地无 Git 信息时以上游 [chensunlai/naviai-robot-development-skill](https://github.com/chensunlai/naviai-robot-development-skill) 为准。只报告结果，未经授权不更新；检查失败则继续使用本地版本。
+
+## 当前测试不可用功能
+
+- 显示屏：目前只能连接 Jetson，且 Jetson 启动成功后需重新拔插背部线缆才能正常显示；Pico 侧需厂家改线，因此所有显示屏相关节点目前均不可用。
+
 ## 参考文件
 
 | 问题 | 读取 |
