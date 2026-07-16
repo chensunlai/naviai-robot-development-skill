@@ -16,6 +16,7 @@ All normal knowledge dependencies are inside this Skill. Select the narrowest re
 |---|---|
 | `ros-topics-actions.md` | Topic and Action names, types, publishers, purposes, inactive names |
 | `ros-services.md` | Service names, types, request/response fields, providers, effects |
+| `naviai-custom-types.md` | 19 custom interface packages, all archived msg/srv/action names, functional categories, and host paths |
 
 ## Capability Development
 

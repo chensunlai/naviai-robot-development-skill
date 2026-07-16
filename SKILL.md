@@ -1,6 +1,6 @@
 ---
 name: naviai-robot-development
-description: NAVIAI 机器人自包含本机知识与开发参考。用于快速了解 Docker/ROS 架构和网络，查询容器、节点、Topic、Action、Service 与功能链路，选择 rosbridge 或 Docker ROS 开发方式，创建和组织 omni 项目，区分宿主机 Project/Dataset/Model/Runs/Tools 分类与新建容器内 /omni_ws ROS 工作空间，了解仅限原 Orin 宿主机的工具命令，以及迁移或离线查询 NAVIAI 开发资料。用户询问“这台机器怎么组织”“代码或模型放哪里”“该用什么命令”“如何接入某项机器人能力”时使用。
+description: NAVIAI 机器人自包含本机知识与开发参考。用于快速了解 Docker/ROS 架构和网络，查询容器、节点、Topic、Action、Service、自定义 msg/srv/action 类型与功能链路，选择 rosbridge 或 Docker ROS 开发方式，创建和组织 omni 项目，区分宿主机 Project/Dataset/Model/Runs/Tools 分类与新建容器内 /omni_ws ROS 工作空间，了解仅限原 Orin 宿主机的工具命令，以及迁移或离线查询 NAVIAI 开发资料。用户询问“这台机器怎么组织”“代码或模型放哪里”“自定义消息包在哪里”“该用什么命令”“如何接入某项机器人能力”时使用。
 ---
 
 # NAVIAI 开发参考
@@ -23,6 +23,7 @@ description: NAVIAI 机器人自包含本机知识与开发参考。用于快速
 | 完整容器、节点、挂载和启动架构 | `references/runtime-architecture.md` |
 | Topic 与 Action 类型、来源和作用 | `references/ros-topics-actions.md` |
 | Service 类型、字段和作用 | `references/ros-services.md` |
+| 自定义 ROS msg/srv/action 包、类型分类与宿主机归档位置 | `references/naviai-custom-types.md` |
 | 相机、点云、IMU、位姿和力传感器 | `references/sensor-access.md` |
 | 建图、地图、定位和导航 | `references/navigation.md` |
 | 上肢、灵巧手和示教 | `references/upper-limb-and-hand.md` |
