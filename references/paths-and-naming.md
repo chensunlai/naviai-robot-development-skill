@@ -16,7 +16,7 @@ Contents:
 
 | Host Path | Contents |
 |---|---|
-| `/home/naviai/Desktop/Project` | Dockerfiles, Compose files, configuration, documentation, rosbridge clients, non-ROS modules, and host-persisted source |
+| `/home/naviai/Desktop/Project` | shared `omni_project` Compose definition, exceptional Dockerfiles, configuration, documentation, rosbridge clients, non-ROS modules, and host-persisted source |
 | `/home/naviai/Desktop/Dataset` | Datasets; data shared across projects lives in `Dataset/share` |
 | `/home/naviai/Desktop/Model` | Weights, checkpoints, inference engines, and exported models; shared models live in `Model/share` |
 | `/home/naviai/Desktop/Runs` | Logs, metrics, predictions, and other run artifacts |
@@ -33,29 +33,29 @@ Use the following convention only for new projects. Existing projects retain the
 /home/naviai/Desktop/Project/omni_<business>
 ```
 
-Typical project structure:
+Typical host structure:
 
 ```text
-omni_ward_guide/
-|-- Dockerfile
-|-- compose.yaml
-|-- README.md
-|-- .gitignore
-|-- cache/
-|-- config/
-|-- scripts/
-|-- src/
-|-- ros_src/                 # optional host-persisted ROS package source
-|-- data  -> /home/naviai/Desktop/Dataset/omni_ward_guide
-|-- model -> /home/naviai/Desktop/Model/omni_ward_guide
-`-- runs  -> /home/naviai/Desktop/Runs/omni_ward_guide
+/home/naviai/Desktop/Project/
+|-- omni_project/
+|   `-- compose.yaml         # shared Compose project for new containers
+`-- omni_ward_guide/
+    |-- README.md
+    |-- .gitignore
+    |-- cache/
+    |-- config/
+    |-- scripts/
+    |-- src/
+    |-- ros_src/             # optional host-persisted ROS package source
+    |-- data  -> /home/naviai/Desktop/Dataset/omni_ward_guide
+    |-- model -> /home/naviai/Desktop/Model/omni_ward_guide
+    `-- runs  -> /home/naviai/Desktop/Runs/omni_ward_guide
 ```
 
 A native ROS project can keep package source on the host for editing and persistence:
 
 ```text
-|-- vendor/
-|   `-- zj_humanoid_types.run
+omni_ward_guide/
 `-- ros_src/
     `-- omni_ward_guide/
 ```
@@ -69,7 +69,8 @@ On the original Orin host, `llm_create_pkg omni_ward_guide` creates the base hos
 | Content | Location |
 |---|---|
 | Git-managed source and small configuration files | `Project/<project>` |
-| Dockerfile and `compose.yaml` | Project root |
+| Shared Compose definition for new containers | `Project/omni_project/compose.yaml` |
+| Dockerfile for an explicitly justified derived-image exception | The owning application project root |
 | Project scripts | `Project/<project>/scripts` |
 | rosbridge clients and modules without a strong ROS build dependency | `Project/<project>/src` or another project-owned host directory |
 | New-project ROS package source edited from the host | `Project/<project>/ros_src`, mounted at `/omni_ws/src` |
@@ -91,7 +92,7 @@ Do not copy datasets, models, or run results into the source tree or save them a
 
 Do not create `Project`, `Dataset`, `Model`, `Runs`, or a Desktop hierarchy inside a ROS container. Container code should see ROS workspace paths, not host classification paths. Mount only what the process needs, using simple container locations such as `/config`, `/data`, `/models`, and `/runs`.
 
-The host project remains the ownership boundary for Dockerfile, Compose, version control, and persistent source. The container remains the build and runtime environment for ROS. A bind mount can connect the two without making their directory structures identical.
+The application project remains the ownership boundary for version control and persistent source. `/home/naviai/Desktop/Project/omni_project/compose.yaml` is the shared lifecycle and grouping boundary for new project containers. The container remains the runtime environment for ROS. A bind mount can connect these boundaries without making their directory structures identical.
 
 ## Naming Conventions
 
@@ -100,8 +101,8 @@ The host project remains the ownership boundary for Dockerfile, Compose, version
 | Project | `omni_<business>` | `omni_ward_guide` |
 | Container for a single-container project | `omni_<business>` | `omni_ward_guide` |
 | Containers for a multi-container project | `omni_<business>_<role>` | `omni_ward_guide_ros` |
-| Compose project | `omni_<business>` | `omni_ward_guide` |
-| Image | `omni/<business>:<tag>` | `omni/ward_guide:dev`, `omni/ward_guide:1.0.0` |
+| Compose project for new containers | `omni_project` | `omni_project` |
+| Image | exact existing repository and tag | `10.51.33.201:30002/navi_project/environment:ros1_260310` |
 | ROS package | `omni_<business>` | `omni_ward_guide` |
 | ROS node | `/omni_<business>_<role>` | `/omni_ward_guide_executor` |
 | Application-owned Topic or Service | `/omni/<business>/...` | `/omni/ward_guide/task_state` |
@@ -112,9 +113,11 @@ Current naming boundaries:
 - `/zj_humanoid/*`: existing robot interface namespace.
 - `omni_*` and `/omni/*`: new application projects and their interfaces.
 
-Use the same business stem for the project, containers, and ROS package so processes, logs, and source can be traced back to one another. Development images may use `dev`; deployment images may use explicit version tags.
+Use the same business stem for the application directory, containers, and ROS package so processes, logs, and source can be traced back to one another. The image name does not need that stem: new project containers directly reuse an inspected existing image and keep its exact repository and tag. An image repository prefix such as `navi_project` does not determine the container's Compose project.
 
-In Compose, set the project with `name: omni_<business>` and the final container name with `container_name: omni_<business>[_<role>]` in each service.
+Define new services in `/home/naviai/Desktop/Project/omni_project/compose.yaml`, set its top-level name to `omni_project`, and set each final container name with `container_name: omni_<business>[_<role>]`. On the original Orin, always invoke it with `docker compose -p omni_project ...` because the host exports `COMPOSE_PROJECT_NAME=navi_project` for the robot runtime.
+
+Do not build or retag a derived image merely to make its visible name match `omni_project`. Add a Dockerfile only when no existing image contains a required image-layer dependency, and record that exception in the owning project.
 
 ## Container Paths and Mounts
 

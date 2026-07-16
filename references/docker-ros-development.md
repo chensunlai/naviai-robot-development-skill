@@ -1,6 +1,6 @@
 # Native ROS Development in Docker
 
-Run native ROS applications in an independent Docker container connected directly to the robot ROS master. For a new project, keep Docker definitions and persistent source under the host Project directory and large resources under Dataset, Model, and Runs. Use a conventional ROS workspace at `/omni_ws` inside a new container; do not reproduce the host Desktop classification.
+Run native ROS applications in an independent Docker container connected directly to the robot ROS master. On the original Orin host, create a new project container directly from an existing local image and place it in the shared Compose project `omni_project`. Do not build or retag a project-specific derived image by default. Keep persistent source under the host Project directory and large resources under Dataset, Model, and Runs. Use a conventional ROS workspace at `/omni_ws` inside a new container; do not reproduce the host Desktop classification.
 
 This page defines a new-project baseline. When working in an existing container, preserve its current workspace path, package layout, mounts, startup mechanism, and setup-source order. Do not retrofit `/omni_ws` or the `omni_*` naming convention unless the user explicitly requests that migration.
 
@@ -10,9 +10,9 @@ Do not treat existing `naviai_*` runtime containers as development workspaces. T
 
 - [Project and Interface Setup](#project-and-interface-setup)
 - [Host and Container Layout](#host-and-container-layout)
-- [Dockerfile](#dockerfile)
+- [Existing Image Selection](#existing-image-selection)
 - [compose.yaml](#composeyaml)
-- [Build and Enter](#build-and-enter)
+- [Create and Enter](#create-and-enter)
 - [Create a ROS Package](#create-a-ros-package)
 - [Connection Checks](#connection-checks)
 - [Persistent Node Startup](#persistent-node-startup)
@@ -23,64 +23,60 @@ Do not treat existing `naviai_*` runtime containers as development workspaces. T
 
 ```bash
 mkdir -p /home/naviai/Desktop/Project/omni_ward_guide
+mkdir -p /home/naviai/Desktop/Project/omni_project
 mkdir -p /home/naviai/Desktop/Dataset/omni_ward_guide
 mkdir -p /home/naviai/Desktop/Model/omni_ward_guide
 mkdir -p /home/naviai/Desktop/Runs/omni_ward_guide
 cd /home/naviai/Desktop/Project/omni_ward_guide
-mkdir -p vendor ros_src config
-install -m 0755 \
-  /home/naviai/navi_project/containers/shared/zj_humanoid_types_dev-v1.3.0+78a9d8e+71.run \
-  vendor/zj_humanoid_types.run
+mkdir -p ros_src config
 ```
 
 These are host directories. `ros_src` contains only package source that must persist or be edited from the host. See `references/paths-and-naming.md` for the full boundary.
 
 ## Host and Container Layout
 
-| Host Project | Container | Purpose |
+| Host Path | Container Path or Role | Purpose |
 |---|---|---|
-| `Dockerfile`, `compose.yaml` | Docker/Compose metadata | Build and runtime definition; no mirrored container directory is needed |
-| `ros_src/` | `/omni_ws/src` | Persistent ROS package source |
-| `config/` | `/config` | Optional external configuration |
+| `Desktop/Project/omni_project/compose.yaml` | Docker/Compose metadata | Shared definition that groups new project containers under `omni_project` |
+| `Desktop/Project/omni_ward_guide/ros_src` | `/omni_ws/src` | Persistent ROS package source |
+| `Desktop/Project/omni_ward_guide/config` | `/config` | Optional external configuration |
 | `Desktop/Dataset/<project>` | `/data` | Optional datasets or captured input |
 | `Desktop/Model/<project>` | `/models` | Optional model artifacts |
 | `Desktop/Runs/<project>` | `/runs` | Optional logs and application output |
 
 The container owns `/omni_ws/build` and `/omni_ws/devel`. Keep those generated directories inside the container or a Docker volume. Do not create `/home/naviai/Desktop`, `Project`, `Dataset`, `Model`, or `Runs` inside the container.
 
-## Dockerfile
+## Existing Image Selection
 
-```dockerfile
-FROM 10.51.33.201:30002/navi_project/environment:ros1_260310
+Inspect the exact existing image before adding the service. Reuse its current repository and tag instead of creating a shorter local alias or a project-specific derived image.
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-COPY vendor/zj_humanoid_types.run /tmp/zj_humanoid_types.run
-RUN chmod +x /tmp/zj_humanoid_types.run \
-    && /tmp/zj_humanoid_types.run \
-    && rm -f /tmp/zj_humanoid_types.run
-
-SHELL ["/bin/bash", "-lc"]
-RUN mkdir -p /omni_ws/src
-WORKDIR /omni_ws
-
-ENTRYPOINT []
-CMD ["bash"]
+```bash
+docker image inspect \
+  10.51.33.201:30002/navi_project/environment:ros1_260310
 ```
 
-The base image supplies ROS Noetic. The type installer supplies packages including `zj_robot`, `sensor`, `audio`, `upperlimb`, `hand`, `map_server_msgs`, and `navigation`.
+Use `10.51.33.201:30002/navi_project/environment:ros1_260310` for a plain ROS Noetic project when its installed packages satisfy the application. If another existing container already has the required runtime, inspect its exact image name and contents before reusing that image:
+
+```bash
+docker inspect --format '{{.Config.Image}} {{.Image}}' <reference-container>
+docker run --rm --pull never --entrypoint bash <exact-image> -lc \
+  'source /opt/ros/noetic/setup.bash; rospack find <required-package>'
+```
+
+Direct image reuse does not add the NAVIAI custom interface installer. Verify every required package, such as `zj_robot`, `sensor`, `audio`, `upperlimb`, or `hand`, in the selected image. Prefer another existing image that already contains the dependency. Add a Dockerfile only when no existing image can satisfy an explicit image-layer dependency, and document why the exception needs a derived image.
+
+The repository prefix displayed by Docker belongs to the image name. It is independent of the Compose grouping: a container can display an image such as `10.51.33.201:30002/navi_project/environment:ros1_260310` while belonging to Compose project `omni_project`.
 
 ## compose.yaml
 
 ```yaml
-name: omni_ward_guide
+# /home/naviai/Desktop/Project/omni_project/compose.yaml
+name: omni_project
 
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: omni/ward_guide:dev
+  omni_ward_guide:
+    image: 10.51.33.201:30002/navi_project/environment:ros1_260310
+    pull_policy: never
     container_name: omni_ward_guide
     network_mode: host
     restart: unless-stopped
@@ -96,8 +92,8 @@ services:
       - "pico.zjrx.com:192.168.217.66"
 
     volumes:
-      - ./ros_src:/omni_ws/src
-      - ./config:/config:ro
+      - ../omni_ward_guide/ros_src:/omni_ws/src
+      - ../omni_ward_guide/config:/config:ro
       - /home/naviai/Desktop/Dataset/omni_ward_guide:/data:ro
       - /home/naviai/Desktop/Model/omni_ward_guide:/models:ro
       - /home/naviai/Desktop/Runs/omni_ward_guide:/runs
@@ -112,20 +108,21 @@ services:
       com.omni.role: ros-app
 ```
 
-`container_name` is the final Docker name; Compose service name `app` is local to this file. A multi-container project can use `omni_ward_guide_ros`, `omni_ward_guide_web`, and similar role suffixes.
+`container_name` is the final Docker name. Add every new project-container service to this shared file so VS Code and Docker Compose show them under one `omni_project` group. A multi-container application can use `omni_ward_guide_ros`, `omni_ward_guide_web`, and similar role suffixes.
+
+The original Orin shell exports `COMPOSE_PROJECT_NAME=navi_project` for the robot runtime. Because that environment variable can override the top-level `name`, always pass `-p omni_project`. Never run this application file as project `navi_project`.
 
 Before adding another project or container, check whether the new component can share the existing environment and lifecycle. Related packages and nodes should normally remain in the same `omni_*` project or container. Split them only for a concrete boundary such as incompatible dependencies, independent deployment or restart, device permissions, resource isolation, or a distinct operational owner.
 
-## Build and Enter
+## Create and Enter
 
 ```bash
-cd /home/naviai/Desktop/Project/omni_ward_guide
-docker compose build
-docker compose up -d
+cd /home/naviai/Desktop/Project/omni_project
+docker compose -p omni_project up -d omni_ward_guide
 docker exec -it omni_ward_guide bash
 ```
 
-List application containers with `docker ps --filter 'name=omni_'`. `sleep infinity` is only a development keepalive. Host-mounted package source and optional resources survive container deletion. `/omni_ws/build` and `/omni_ws/devel` are generated container workspace products.
+This command creates the container directly from the selected existing image; there is no `docker compose build` step. List the group with `docker compose -p omni_project ps -a`. `sleep infinity` is only a development keepalive. Host-mounted package source and optional resources survive container deletion. `/omni_ws/build` and `/omni_ws/devel` are generated container workspace products.
 
 ## Create a ROS Package
 
@@ -186,11 +183,11 @@ command:
 Keep `restart: unless-stopped`. Compose manages container restart; roslaunch manages this application's nodes. A single launch entry normally does not need supervisor. Use a project-owned supervisor only for multiple independent processes requiring separate restart behavior.
 
 ```bash
-docker compose up -d --build
-docker compose down
+docker compose -p omni_project up -d omni_ward_guide
+docker compose -p omni_project stop omni_ward_guide
 ```
 
-`down` removes container and Compose network state, not host bind-mounted project data.
+Avoid using `down` merely to stop one service because the shared Compose project can own multiple independent project containers. A service can be recreated without changing its bind-mounted project data with `docker compose -p omni_project up -d --force-recreate <service>`.
 
 ## Other Lab Servers
 
@@ -206,10 +203,10 @@ For a remote native ROS container, set `ROS_IP` to an address robot nodes can re
 Apply this checklist to newly created projects. For an existing project, first follow its established structure and change it only when the user explicitly asks.
 
 1. Project lives at `/home/naviai/Desktop/Project/omni_<business>`.
-2. Dockerfile and Compose are at project root.
+2. Its service is defined in `/home/naviai/Desktop/Project/omni_project/compose.yaml`.
 3. Container names use `omni_` and do not occupy `naviai_*` names.
 4. The new container uses `/omni_ws`; host `ros_src` mounts at `/omni_ws/src`.
-5. Image uses `omni/<business>:<explicit-tag>`.
+5. The service directly references an existing, inspected image with its exact repository and tag; it has no project-specific derived image by default.
 6. ROS package, node, and application interfaces share the project prefix.
 7. Host networking, ROS master, ROS IP, and hostname mappings are correct.
 8. Host Dataset, Model, and Runs directories mount only when the node needs them, at simple paths such as `/data`, `/models`, and `/runs`.
@@ -218,3 +215,4 @@ Apply this checklist to newly created projects. For an existing project, first f
 11. Persistent apps use `restart: unless-stopped` and a real launch entry.
 12. Control nodes implement timeout, cancellation, shutdown stop, and control ownership.
 13. A new container is introduced only when the existing project or container cannot reasonably own the component.
+14. All new project containers carry Compose project `omni_project`, and Compose commands explicitly pass `-p omni_project`.

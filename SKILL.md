@@ -53,6 +53,8 @@ Skill 根目录可能包含 `naviai_env.md`，它是机器连接信息的唯一�
 - 当前约定用 `omni_*` 标识新增项目，`naviai_*` 标识现有机器人运行栈；涉及后者时说明影响范围。
 - 已有项目和容器的现状优先于本文档的新建规范。处理已有环境时沿用其工作空间名称与位置、目录结构、挂载、启动方式和 source 顺序；除非用户明确要求，不要重命名、迁移或重构已有结构。`omni_*`、`/omni_ws` 等规范只用于新建项目。
 - 桌面 `Project/Dataset/Model/Runs/Tools` 分类仅用于宿主机；新建 ROS 容器默认使用根目录下的普通工作空间 `/omni_ws`，不要复制宿主机分类。
+- 在原 Orin 上创建新的项目容器时，默认直接引用经 `docker image inspect` 确认存在的本地镜像，不为项目重复构建或重标记派生镜像；只有现有镜像都不能满足明确的镜像层依赖时，才增加 Dockerfile，并记录原因。
+- 新增项目容器统一由 `/home/naviai/Desktop/Project/omni_project/compose.yaml` 管理，并归入 Compose project `omni_project`；执行 Compose 时显式使用 `-p omni_project`，避免宿主机的 `COMPOSE_PROJECT_NAME=navi_project` 把项目容器归入现有机器人运行栈。
 - 规划开发环境时，若新功能与现有 `omni_*` project/container 的依赖、用途和生命周期相近，应提醒用户优先在同一项目或容器中扩展，减少功能相似的重复容器。只有环境冲突、独立部署重启、设备权限或资源隔离等边界明确时再拆分。
 - 自定义工具只能在原 Orin 宿主机使用；容器和迁移机器使用标准 Docker、ROS 或系统命令。
 - 仅查看任务使用只读命令。发布控制消息、调用状态变更 Service/Action、重启容器或编辑配置需要用户明确要求。
