@@ -16,7 +16,7 @@ Contents:
 
 | Host Path | Contents |
 |---|---|
-| `/home/naviai/Desktop/Project` | shared `omni_project` Compose definition, exceptional Dockerfiles, configuration, documentation, rosbridge clients, non-ROS modules, and host-persisted source |
+| `/home/naviai/Desktop/Project` | application-owned optional Compose definitions, exceptional Dockerfiles, configuration, documentation, rosbridge clients, non-ROS modules, and host-persisted source |
 | `/home/naviai/Desktop/Dataset` | Datasets; data shared across projects lives in `Dataset/share` |
 | `/home/naviai/Desktop/Model` | Weights, checkpoints, inference engines, and exported models; shared models live in `Model/share` |
 | `/home/naviai/Desktop/Runs` | Logs, metrics, predictions, and other run artifacts |
@@ -37,11 +37,10 @@ Typical host structure:
 
 ```text
 /home/naviai/Desktop/Project/
-|-- omni_project/
-|   `-- compose.yaml         # shared Compose project for new containers
 `-- omni_ward_guide/
     |-- README.md
     |-- .gitignore
+    |-- compose.yaml         # optional, owned only by this project
     |-- cache/
     |-- config/
     |-- scripts/
@@ -69,7 +68,7 @@ On the original Orin host, `llm_create_pkg omni_ward_guide` creates the base hos
 | Content | Location |
 |---|---|
 | Git-managed source and small configuration files | `Project/<project>` |
-| Shared Compose definition for new containers | `Project/omni_project/compose.yaml` |
+| Optional Compose definition for a project | `Project/<project>/compose.yaml` |
 | Dockerfile for an explicitly justified derived-image exception | The owning application project root |
 | Project scripts | `Project/<project>/scripts` |
 | rosbridge clients and modules without a strong ROS build dependency | `Project/<project>/src` or another project-owned host directory |
@@ -92,7 +91,7 @@ Do not copy datasets, models, or run results into the source tree or save them a
 
 Do not create `Project`, `Dataset`, `Model`, `Runs`, or a Desktop hierarchy inside a ROS container. Container code should see ROS workspace paths, not host classification paths. Mount only what the process needs, using simple container locations such as `/config`, `/data`, `/models`, and `/runs`.
 
-The application project remains the ownership boundary for version control and persistent source. `/home/naviai/Desktop/Project/omni_project/compose.yaml` is the shared lifecycle and grouping boundary for new project containers. The container remains the runtime environment for ROS. A bind mount can connect these boundaries without making their directory structures identical.
+The application project remains the ownership boundary for version control, persistent source, and any optional Compose definition. New containers do not need to join a shared Compose project. The container remains the runtime environment for ROS. A bind mount can connect these boundaries without making their directory structures identical.
 
 ## Naming Conventions
 
@@ -101,7 +100,7 @@ The application project remains the ownership boundary for version control and p
 | Project | `omni_<business>` | `omni_ward_guide` |
 | Container for a single-container project | `omni_<business>` | `omni_ward_guide` |
 | Containers for a multi-container project | `omni_<business>_<role>` | `omni_ward_guide_ros` |
-| Compose project for new containers | `omni_project` | `omni_project` |
+| Optional Compose name | project-specific `omni_<business>` | `omni_ward_guide` |
 | Image | exact existing repository and tag | `10.51.33.201:30002/navi_project/environment:ros1_260310` |
 | ROS package | `omni_<business>` | `omni_ward_guide` |
 | ROS node | `/omni_<business>_<role>` | `/omni_ward_guide_executor` |
@@ -113,11 +112,11 @@ Current naming boundaries:
 - `/zj_humanoid/*`: existing robot interface namespace.
 - `omni_*` and `/omni/*`: new application projects and their interfaces.
 
-Use the same business stem for the application directory, containers, and ROS package so processes, logs, and source can be traced back to one another. The image name does not need that stem: new project containers directly reuse an inspected existing image and keep its exact repository and tag. An image repository prefix such as `navi_project` does not determine the container's Compose project.
+Use the same business stem for the application directory, containers, and ROS package so processes, logs, and source can be traced back to one another. When Compose is needed, keep its definition in that application directory and use the same project-specific stem. The image name does not need that stem: project containers directly reuse an inspected existing image and keep its exact repository and tag.
 
-Define new services in `/home/naviai/Desktop/Project/omni_project/compose.yaml`, set its top-level name to `omni_project`, and set each final container name with `container_name: omni_<business>[_<role>]`. On the original Orin, always invoke it with `docker compose -p omni_project ...` because the host exports `COMPOSE_PROJECT_NAME=navi_project` for the robot runtime.
+For a blank standalone development container on the original Orin, prefer `naviai_container create`. When an application requires persistent mounts, declarative startup, or multiple services, define them in `/home/naviai/Desktop/Project/omni_<business>/compose.yaml`, set each final container name with `container_name: omni_<business>[_<role>]`, and invoke it with an explicit project-specific name such as `docker compose -p omni_ward_guide ...`. The explicit name prevents the host's `COMPOSE_PROJECT_NAME=navi_project` from grouping the application with the robot runtime.
 
-Do not build or retag a derived image merely to make its visible name match `omni_project`. Add a Dockerfile only when no existing image contains a required image-layer dependency, and record that exception in the owning project.
+Do not build or retag a derived image merely to make its visible name match the project. Add a Dockerfile only when no existing image contains a required image-layer dependency, and record that exception in the owning project.
 
 ## Container Paths and Mounts
 

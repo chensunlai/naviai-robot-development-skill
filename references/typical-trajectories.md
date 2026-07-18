@@ -10,9 +10,9 @@ Use `machine-overview.md` for the short model and `runtime-architecture.md` only
 
 ## Create a Local Project
 
-Reference trajectory: `omni_<business> host project -> choose rosbridge/non-ROS host code or native ROS container -> reuse an existing local image -> add the container to omni_project -> mount only required persistent resources`.
+Reference trajectory: `omni_<business> host project -> choose rosbridge/non-ROS host code or native ROS container -> create a standalone development container or use project-owned Compose when persistence is required -> mount only required persistent resources`.
 
-The host Desktop classification stores the shared `omni_project` Compose definition, non-ROS or rosbridge code, datasets, models, and results. A newly created native ROS container directly reuses an inspected existing image, belongs to Compose project `omni_project`, and defaults to `/omni_ws`; it does not reproduce the host's `Project/Dataset/Model/Runs` layout. Existing containers retain their established paths. On the original Orin host, `llm_create_pkg` can generate host links for a new project. See `paths-and-naming.md` and `commands.md`.
+The host Desktop classification stores non-ROS or rosbridge code, optional project-owned Compose definitions, datasets, models, and results. A newly created native ROS container does not need to join a shared Compose project and defaults to `/omni_ws`; it does not reproduce the host's `Project/Dataset/Model/Runs` layout. Existing containers retain their established paths. On the original Orin host, `llm_create_pkg` can generate host links and `naviai_container create` can create a blank standalone development container. See `paths-and-naming.md` and `commands.md`.
 
 ## Develop a Non-ROS Application
 
@@ -22,7 +22,7 @@ Use `rosbridge-development.md`. High-rate images/clouds or a full ROS toolchain 
 
 ## Develop a Native ROS Application
 
-Reference trajectory: `omni_* project and container -> inspect and reuse an existing ROS image -> add service to omni_project -> verify types -> network and hostnames -> workspace mounts -> interactive or persistent launch`.
+Reference trajectory: `omni_* project and container -> choose standalone helper or project-owned Compose -> inspect and reuse an existing ROS image when Compose is needed -> verify types -> network and hostnames -> workspace mounts -> interactive or persistent launch`.
 
 Use `docker-ros-development.md`. Add GPU, USB, X11, `/dev`, and privileged access only when required.
 

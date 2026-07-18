@@ -15,7 +15,7 @@ The source-machine convention avoids installing ROS development dependencies dir
 
 | Development Location | File-Management Preference |
 |---|---|
-| Orin host | Put each application's configuration, documentation, rosbridge clients, non-ROS modules, and persistent source under `/home/naviai/Desktop/Project/omni_<business>`. Define new project containers in `/home/naviai/Desktop/Project/omni_project/compose.yaml`. Keep large data, models, and results in the matching Desktop classifications. |
+| Orin host | Put each application's configuration, documentation, optional project-owned `compose.yaml`, rosbridge clients, non-ROS modules, and persistent source under `/home/naviai/Desktop/Project/omni_<business>`. Keep large data, models, and results in the matching Desktop classifications. |
 | New native ROS container | Use a normal Catkin workspace at `/omni_ws`. Packages live in `/omni_ws/src`; Catkin generates `/omni_ws/build` and `/omni_ws/devel`. Do not reproduce the host Desktop classification. |
 
 For a new project, host package source may be bind-mounted from `Project/<project>/ros_src` to `/omni_ws/src` for persistence. This mount connects two different organizational schemes; it does not make the host project a Catkin workspace or make the container follow the Desktop layout. Existing containers retain their established workspace path and source order.
@@ -37,8 +37,9 @@ For a new project, host package source may be bind-mounted from `Project/<projec
 | image strategy | directly reuse an inspected existing local image; do not build or retag a derived image by default |
 | plain ROS image example | `10.51.33.201:30002/navi_project/environment:ros1_260310` |
 | custom interfaces | verify required packages in the selected image; direct reuse does not add an installer |
-| Compose definition | `/home/naviai/Desktop/Project/omni_project/compose.yaml` |
-| Compose project | `omni_project`, invoked explicitly with `docker compose -p omni_project ...` |
+| container creation | use `naviai_container create` for a blank standalone environment; use project-owned Compose only when mounts or declarative lifecycle are required |
+| optional Compose definition | `/home/naviai/Desktop/Project/omni_<business>/compose.yaml` |
+| optional Compose name | project-specific `omni_<business>`, passed explicitly with `docker compose -p omni_<business> ...` |
 | network | host |
 | base setup | `/opt/ros/noetic/setup.bash` |
 | container ROS workspace | `/omni_ws` |
