@@ -47,6 +47,19 @@ listen.publish(new ROSLIB.Message({ data: true }))
 
 One business-level owner should manage listening start, timeout, and completion rather than allowing multiple clients to toggle it concurrently.
 
+### Wake Word Configuration
+
+The live `naviai_navbrain_ros:v1.2.4` snapshot has two similarly named wake mechanisms. Do not treat them as interchangeable:
+
+- `/avvtn_node` publishes `/zj_humanoid/audio/microphone/wake_info`. Its active four-microphone IVW resource is selected by `/navi_ws/src/avvtn_multi_demo/resource/vtn_4mic/vtn.ini` and currently resolves to `vtn_4mic/keywords.bin`.
+- `/Nav/snowboy_vad/hotword` is currently `xiaolv.pmdl`, and `navbrain_ros` contains Snowboy code and that model. It is not the resource producing `/avvtn_node`'s `wake_info`; do not infer the live ROS wake phrase from this parameter.
+
+In the observed image, `keywords.bin` is identical to `three.bin` and contains three phonetic entries: `xiao3 yi4 xiao3 yi4`, `ni3 hao3 xiao3 ai4`, and `xiao3 ai4 xiao3 ai4`. Treat each entry as one complete wake phrase and say that complete phrase once; only the first and third entries repeat a name within the phrase. For example, say `ni3 hao3 xiao3 ai4` once rather than repeating the whole phrase. No `xiao3 lv4` entry was found, so the live resource does not support “小律” as an evidenced wake phrase. The IVW result reports the matched entry in `AudioWakeInfo.keyword`.
+
+An IVW wake phrase is a compiled vendor resource, not an editable string parameter. Use a compatible AVVTN/iFlytek-generated `.bin`; do not rename a Snowboy `.pmdl` or edit strings inside the binary. Reinitializing `/avvtn_node` through `/avvtn_node/restart` reloads the AVVTN process after a resource change. The Service request is empty and its response contains `bool success` and `string message`.
+
+The AVVTN package and `vtn_4mic` resources are baked into the navbrain image, not bind-mounted in the observed Compose configuration. An edit made with `docker exec` survives a process or container restart but is lost when the container is recreated. For a persistent deployment, store the approved resource on the Orin host and bind-mount it over `/navi_ws/src/avvtn_multi_demo/resource/vtn_4mic/keywords.bin`, or build a derived image. Resource replacement and restart are global audio-stack changes and require explicit authorization.
+
 ## Text to Speech
 
 Service `/zj_humanoid/audio/tts_service`, type `audio/TTS`:
