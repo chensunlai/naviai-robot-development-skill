@@ -8,6 +8,7 @@ WA2 upper-limb and hand Services run on `pico.zjrx.com / 192.168.217.66`. No `/m
 - [Control Levels](#control-levels)
 - [Named Motion](#named-motion)
 - [MoveJ](#movej)
+- [Upper-Limb Joint Limits](#upper-limb-joint-limits)
 - [MoveL and Kinematics](#movel-and-kinematics)
 - [Continuous Servo](#continuous-servo)
 - [Hands](#hands)
@@ -104,6 +105,12 @@ req = MoveJRequest(joints=TARGET_JOINTS, v=0.2, acc=0.2,
 response = movej(req)
 print(response.success, response.message)
 ```
+
+## Upper-Limb Joint Limits
+
+Upper-limb joints have position, velocity, and acceleration limits. The WA2-LS limit data is stored in [`wa2-ls-joint-limits.csv`](wa2-ls-joint-limits.csv).
+
+All upper-limb operations must use the target interface's joint order and keep every commanded position, velocity, and acceleration within these limits. Do not send an upper-limb command or trajectory that exceeds a limit.
 
 ## MoveL and Kinematics
 
