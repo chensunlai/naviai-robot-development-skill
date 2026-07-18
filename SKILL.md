@@ -38,7 +38,7 @@ description: NAVIAI 机器人自包含本机知识与开发参考。用于快速
 | 典型信息与开发轨迹 | `references/typical-trajectories.md` |
 | 迁移边界和快照说明 | `references/portability.md` |
 
-本 Skill 不包含工具脚本。在原 Orin 宿主机上，Docker 和 ROS 操作优先使用 `/home/naviai/Desktop/Tools` 中经 `command -v` 确认可用的工具；无对应工具时再用原生命令。详见 `references/commands.md`。
+本 Skill 不包含工具脚本。在宿主机执行任何 ROS 或容器操作前，必须先完整读取 `references/commands.md`。若其中提供了对应工具，先通过 `command -v <tool>` 确认可用并优先使用；仅在无对应工具或工具不可用时使用原生 Docker/ROS 命令。自定义工具仅限原 Orin 宿主机，不得在容器或迁移机器中假定可用。
 
 Skill 根目录可能包含 `naviai_env.md`，它是机器连接信息的唯一来源。询问或需要连接信息时先读取该文件；若不存在，直接请用户提供并放到 Skill 根目录，不得搜索或推断其他线索。
 
@@ -56,7 +56,6 @@ Skill 根目录可能包含 `naviai_env.md`，它是机器连接信息的唯一�
 - 在原 Orin 上创建新的项目容器时，默认直接引用经 `docker image inspect` 确认存在的本地镜像，不为项目重复构建或重标记派生镜像；只有现有镜像都不能满足明确的镜像层依赖时，才增加 Dockerfile，并记录原因。
 - 新增项目容器统一由 `/home/naviai/Desktop/Project/omni_project/compose.yaml` 管理，并归入 Compose project `omni_project`；执行 Compose 时显式使用 `-p omni_project`，避免宿主机的 `COMPOSE_PROJECT_NAME=navi_project` 把项目容器归入现有机器人运行栈。
 - 规划开发环境时，若新功能与现有 `omni_*` project/container 的依赖、用途和生命周期相近，应提醒用户优先在同一项目或容器中扩展，减少功能相似的重复容器。只有环境冲突、独立部署重启、设备权限或资源隔离等边界明确时再拆分。
-- 自定义工具只能在原 Orin 宿主机使用；容器和迁移机器使用标准 Docker、ROS 或系统命令。
 - 仅查看任务使用只读命令。发布控制消息、调用状态变更 Service/Action、重启容器或编辑配置需要用户明确要求。
 
 ## 信息可信度
