@@ -47,7 +47,7 @@ The container owns `/omni_ws/build` and `/omni_ws/devel`. Keep those generated d
 
 ## Existing Image Selection
 
-When project-owned Compose is required, inspect the exact existing image before adding the service. Reuse its current repository and tag instead of creating a shorter local alias or a project-specific derived image. A blank container created by `naviai_container create` instead uses the exact local image of `naviai_demos`; see `references/commands.md`.
+When project-owned Compose is required, inspect the exact existing image before adding the service. Reuse its current repository and tag instead of creating a shorter local alias or a project-specific derived image. A blank container created by `naviai_container create` instead uses the fixed local demos image recorded in `references/commands.md`.
 
 ```bash
 docker image inspect \
@@ -214,7 +214,7 @@ Apply this checklist to newly created projects. For an existing project, first f
 2. A blank standalone container is created with `naviai_container create`; if persistence or declarative lifecycle is required, its optional Compose definition lives in the owning project directory.
 3. Container names use `omni_` and do not occupy `naviai_*` names.
 4. The new container uses `/omni_ws`; a standalone container creates it internally, while project-owned Compose mounts host `ros_src` at `/omni_ws/src` when persistence is required.
-5. A Compose service directly references an existing, inspected image with its exact repository and tag; the standalone helper reuses the exact `naviai_demos` image. Neither path creates a project-specific derived image by default.
+5. A Compose service directly references an existing, inspected image with its exact repository and tag; the standalone helper uses its fixed local demos image. Neither path creates a project-specific derived image by default.
 6. ROS package, node, and application interfaces share the project prefix.
 7. Host networking, ROS master, ROS IP, and hostname mappings are correct.
 8. Host Dataset, Model, and Runs directories mount only when the node needs them, at simple paths such as `/data`, `/models`, and `/runs`.

@@ -43,17 +43,17 @@ Typical new-project command: run `cd /home/naviai/Desktop/Project`, then `llm_cr
 | `naviai_copy -r <container> <container-path> <local-path>` | Copy from the container to the host with `docker cp` |
 | `naviai_hosts ls` | List every container name and state |
 | `naviai_hosts <container>` | Add `jzrobot-a` and `pico.zjrx.com` entries to the container `/etc/hosts` |
-| `naviai_container create <name> [ssh_port]` | Create and start one blank development container from the exact local image used by `naviai_demos`; omit `ssh_port` to select a currently unused random port from `20000-65535` |
+| `naviai_container create <name> [ssh_port]` | Create and start one blank development container from the fixed local image `10.51.33.201:30002/navi_project/demos:v1.0.2`; omit `ssh_port` to select a currently unused random port from `20000-65535` |
 | `naviai_container remove <container>` | Force-remove exactly one named non-official container; an official container is rejected even when addressed by container ID |
 
 `naviai_enter`, `naviai_copy`, and `naviai_hosts` reuse existing containers. `naviai_hosts` skips a hostname that already exists and does not validate or correct its IP. Changes disappear when the container is recreated. Use Compose `extra_hosts` for a persistent application container.
 
 `naviai_container create` has these implementation boundaries:
 
-- It reads the image name and image ID from the current `naviai_demos` container, verifies that the same image is still available locally, and runs with `--pull never`. It neither builds nor downloads an image.
+- It is pinned to local image `10.51.33.201:30002/navi_project/demos:v1.0.2` with expected image ID `sha256:a29db54844c1db6e3f61e856b9713d0de5c8b55f0493bc1a0985406b2a573e38`. It verifies both before running with `--pull never`; it neither builds nor downloads an image and does not derive the image from `naviai_demos`.
 - It uses the image's built-in Ubuntu 20.04 environment, root account, sshd, and supervisor. It runs with host networking, the NVIDIA runtime, privileged mode, the robot hostname mappings, and the observed ROS master and host IP values.
 - With no port argument it selects a currently non-listening random host port in `20000-65535`; an explicit port remains supported. The selected port becomes sshd's actual listen port because host networking does not use Docker port publishing.
-- The resulting command is `ssh -p <selected-port> root@localhost`. Authentication state comes from the `naviai_demos` image; the helper does not create a new password or SSH key.
+- The resulting command is `ssh -p <selected-port> root@localhost`. Authentication state comes from the fixed demos image; the helper does not create a new password or SSH key.
 - The container uses `restart: unless-stopped`. A failed sshd startup is treated transactionally: the helper prints recent logs and removes only the failed new container.
 
 `naviai_container create` creates a standalone blank development container. It does not add bind mounts or Compose labels. Prefer it when those features are unnecessary. When persistent bind mounts, declarative startup, or multi-service lifecycle management are required, keep an optional project-owned `compose.yaml` in the application directory, directly reference the inspected existing image, and use a project-specific Compose name. There is no requirement to join a shared Compose project; this case has no matching custom helper, so native Docker Compose is appropriate.
