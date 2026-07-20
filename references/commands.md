@@ -65,7 +65,7 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
   | `/home/naviai/.config/pulse/cookie` | `/root/.config/pulse/cookie` | read-only |
   | `/run/user/1000/pulse` | `/run/user/1000/pulse` | read-write |
 
-- A newly generated Compose file declares these host files as read-only startup configs, copies them into the writable container paths before sshd starts, and applies root ownership with directory mode `0700` and file mode `0600`:
+- After Compose creates the container, the helper copies these host files into writable container paths with `docker cp` and applies root ownership with directory mode `0700` and file mode `0600`:
 
   | Host Source | Container Destination |
   |---|---|
@@ -73,7 +73,7 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
   | `/home/naviai/.codex/config.toml` | `/root/.codex/config.toml` |
   | `/home/naviai/.codex/auth.json` | `/root/.codex/auth.json` |
 
-  The Compose file stores only source paths, not credential contents. Direct Compose recreation therefore repeats the copy. After any helper-driven creation, the helper also copies the same files with `docker cp`; this compatibility step initializes containers created from older existing Compose files that lack the generated startup-config declarations. Directly recreating such an old unmodified file without the helper does not perform the compatibility copy.
+  Credential contents are not written into `compose.yaml`. This copy is a `naviai_container create` post-create step for both new and existing Compose files. Directly running `docker compose up` bypasses it; use the helper when a recreated container must receive the current host files.
 
 - Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, bootstrap-copy, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
 

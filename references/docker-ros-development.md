@@ -36,8 +36,8 @@ No manual `Project/omni_ward_guide` or `omni_ws` creation is needed. If either d
 | `Desktop/Project/omni_ward_guide/omni_ws` | `/omni_ws` | Default persistent Catkin workspace, including source and generated products |
 | `Desktop/Project/omni_ward_guide/ros_src` | `/omni_ws/src` | Optional manually designed source-only Compose alternative |
 | `Desktop/Project/omni_ward_guide/config` | `/config` | Optional external configuration |
-| `~/.ssh/authorized_keys` | `/root/.ssh/authorized_keys` | Copied at startup for root SSH access; destination mode `0600` |
-| `~/.codex/config.toml`, `~/.codex/auth.json` | `/root/.codex/` | Copied at startup for root Codex configuration/authentication; destination mode `0600` |
+| `~/.ssh/authorized_keys` | `/root/.ssh/authorized_keys` | Copied by the helper after container creation for root SSH access; destination mode `0600` |
+| `~/.codex/config.toml`, `~/.codex/auth.json` | `/root/.codex/` | Copied by the helper after container creation for root Codex configuration/authentication; destination mode `0600` |
 | `Desktop/Dataset/<project>` | `/data` | Optional datasets or captured input |
 | `Desktop/Model/<project>` | `/models` | Optional model artifacts |
 | `Desktop/Runs/<project>` | `/runs` | Optional logs and application output |
@@ -128,7 +128,7 @@ docker compose -p omni_ward_guide up -d --force-recreate workspace
 naviai_enter omni_ward_guide
 ```
 
-The helper generates or reuses `compose.yaml` and actually creates its `workspace` service, so the container has Compose labels from the first start. The default file includes the whole `/omni_ws` and PulseAudio mounts, declares the host SSH/Codex files as read-only startup configs, copies them to writable root-user destinations with secure permissions, and uses the fixed local image without a build step. Existing Compose edits are not overwritten. The helper repeats the credential copy after creation so an older Compose file is also initialized. Keep service name `workspace`, `container_name: omni_ward_guide`, and numeric `NAVIAI_SSH_PORT` when the helper will be used again. List the service with `docker compose -p omni_ward_guide ps -a`. Host workspace source, `build`, and `devel` products survive container deletion.
+The helper generates or reuses `compose.yaml` and actually creates its `workspace` service, so the container has Compose labels from the first start. The default file includes the whole `/omni_ws` and PulseAudio mounts and uses the fixed local image without a build step. Existing Compose edits are not overwritten. After creation, the helper copies the host SSH/Codex files to writable root-user destinations with secure permissions; directly running Compose bypasses this helper step. Keep service name `workspace`, `container_name: omni_ward_guide`, and numeric `NAVIAI_SSH_PORT` when the helper will be used again. List the service with `docker compose -p omni_ward_guide ps -a`. Host workspace source, `build`, and `devel` products survive container deletion.
 
 ## Create a ROS Package
 
