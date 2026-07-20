@@ -43,7 +43,7 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
 | `naviai_copy -r <container> <container-path> <local-path>` | Copy from the container to the host with `docker cp` |
 | `naviai_hosts ls` | List every container name and state |
 | `naviai_hosts <container>` | Add `jzrobot-a` and `pico.zjrx.com` entries to the container `/etc/hosts` |
-| `naviai_container create <name> [ssh_port]` | Reuse or create `/home/naviai/Desktop/Project/<name>/omni_ws` and `compose.yaml`, then use its `workspace` service to create the container with the whole-workspace and PulseAudio mounts; a new Compose file defaults to `10.51.33.201:30002/navi_project/demos:v1.0.2`, and omitting `ssh_port` selects an unused random port for a new file |
+| `naviai_container create <name> [ssh_port]` | Reuse or create `/home/naviai/Desktop/Project/<name>/omni_ws` and `compose.yaml`, then use its `workspace` service to create the container with the whole-workspace and PulseAudio mounts and copy the host SSH/Codex bootstrap files; a new Compose file defaults to `10.51.33.201:30002/navi_project/demos:v1.0.2`, and omitting `ssh_port` selects an unused random port for a new file |
 | `naviai_container remove <container>` | Force-remove exactly one named non-official container; an official container is rejected even when addressed by container ID |
 
 `naviai_enter`, `naviai_copy`, and `naviai_hosts` reuse existing containers. `naviai_hosts` skips a hostname that already exists and does not validate or correct its IP. Changes disappear when the container is recreated. Use Compose `extra_hosts` for a persistent application container.
@@ -65,13 +65,23 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
   | `/home/naviai/.config/pulse/cookie` | `/root/.config/pulse/cookie` | read-only |
   | `/run/user/1000/pulse` | `/run/user/1000/pulse` | read-write |
 
-- Creation requires the PulseAudio cookie to be readable and the runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
+- A newly generated Compose file declares these host files as read-only startup configs, copies them into the writable container paths before sshd starts, and applies root ownership with directory mode `0700` and file mode `0600`:
+
+  | Host Source | Container Destination |
+  |---|---|
+  | `/home/naviai/.ssh/authorized_keys` | `/root/.ssh/authorized_keys` |
+  | `/home/naviai/.codex/config.toml` | `/root/.codex/config.toml` |
+  | `/home/naviai/.codex/auth.json` | `/root/.codex/auth.json` |
+
+  The Compose file stores only source paths, not credential contents. Direct Compose recreation therefore repeats the copy. After any helper-driven creation, the helper also copies the same files with `docker cp`; this compatibility step initializes containers created from older existing Compose files that lack the generated startup-config declarations. Directly recreating such an old unmodified file without the helper does not perform the compatibility copy.
+
+- Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, bootstrap-copy, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
 
 `naviai_container create` is the default new single-container workflow. It creates a Compose-managed SSH development environment with the three generated mounts above. Edit the generated project-owned `compose.yaml` for additional mounts, another inspected local image, or a different startup command. After editing, use `docker compose -p <name> -f Project/<name>/compose.yaml up -d --force-recreate workspace`, or remove the container and run `naviai_container create <name>` again. Multi-service applications may extend the project file and use Docker Compose directly; they do not join the shared `navi_project`.
 
 `naviai_container remove` resolves the supplied name or ID to the container's current canonical name, refuses names in its protected official snapshot, and then calls `docker rm --force` for that one container. The snapshot includes all containers present when the snapshot was taken, including exited `test_rosenv`: `naviai_chassis`, `naviai_demos`, `naviai_map_server`, `naviai_navbrain_ros`, `naviai_navigation`, `naviai_novnc`, `naviai_nviz`, `naviai_perception`, `naviai_robot`, `naviai_robot_viewer`, `naviai_rosbridge`, `naviai_sensor`, `naviai_sensor_lidar`, and `test_rosenv`. It has no bulk-delete command.
 
-Removing a helper-created container does not remove its host project directory, `omni_ws` contents, or `compose.yaml`.
+Removing a helper-created container deletes the container copies of SSH/Codex credentials with the container layer. It does not modify the host credential sources or remove the host project directory, `omni_ws` contents, or `compose.yaml`.
 
 Useful companion queries:
 
