@@ -75,7 +75,21 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
 
   Credential contents are not written into `compose.yaml`. This copy is a `naviai_container create` post-create step for both new and existing Compose files. Directly running `docker compose up` bypasses it; use the helper when a recreated container must receive the current host files.
 
-- Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, bootstrap-copy, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
+- After the copy, the helper removes any previous `naviai_container`-managed ROS block from `/root/.bashrc` and appends exactly one current block:
+
+  ```bash
+  source /opt/ros/noetic/setup.bash
+  if [ -f /omni_ws/devel/setup.bash ]; then
+    source /omni_ws/devel/setup.bash
+  fi
+
+  export ROS_MASTER_URI="${ROS_MASTER_URI:-http://192.168.217.1:11311}"
+  export ROS_IP="${ROS_IP:-192.168.217.100}"
+  ```
+
+  The conditional workspace source avoids errors before the first Catkin build. Appending the managed block after the image's existing shell setup makes `/omni_ws` the final ROS overlay when its setup file exists. The fallback exports preserve values already injected by Compose. Direct Compose creation bypasses this `.bashrc` initialization.
+
+- Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, bootstrap-copy, `.bashrc` initialization, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
 
 `naviai_container create` is the default new single-container workflow. It creates a Compose-managed SSH development environment with the three generated mounts above. Edit the generated project-owned `compose.yaml` for additional mounts, another inspected local image, or a different startup command. After editing, use `docker compose -p <name> -f Project/<name>/compose.yaml up -d --force-recreate workspace`, or remove the container and run `naviai_container create <name>` again. Multi-service applications may extend the project file and use Docker Compose directly; they do not join the shared `navi_project`.
 
