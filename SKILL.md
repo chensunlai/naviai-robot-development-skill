@@ -54,7 +54,7 @@ Skill 根目录可能包含 `naviai_env.md`，它是机器连接信息的唯一�
 - 当前约定用 `omni_*` 标识新增项目，`naviai_*` 标识现有机器人运行栈；涉及后者时说明影响范围。
 - 已有项目和容器的现状优先于本文档的新建规范。处理已有环境时沿用其工作空间名称与位置、目录结构、挂载、启动方式和 source 顺序；除非用户明确要求，不要重命名、迁移或重构已有结构。`omni_*`、`/omni_ws` 等规范只用于新建项目。
 - 桌面 `Project/Dataset/Model/Runs/Tools` 分类仅用于宿主机；新建 ROS 容器默认使用根目录下的普通工作空间 `/omni_ws`，不要复制宿主机分类。
-- 在原 Orin 上创建空白开发容器时，优先使用 `naviai_container create`。需要持久挂载或声明式启动时，在应用项目目录维护项目自有的 `compose.yaml`，直接引用经 `docker image inspect` 确认存在的本地镜像；不要求加入共享 Compose project，也不为项目重复构建或重标记派生镜像。只有现有镜像都不能满足明确的镜像层依赖时，才增加 Dockerfile，并记录原因。
+- 在原 Orin 上创建新的单容器开发项目时，默认使用 `naviai_container create <name> [ssh_port]`。该工具会复用或创建 `Project/<name>/omni_ws`，生成或复用项目自有的 `Project/<name>/compose.yaml`，并实际通过其中的 `workspace` service 创建容器；默认配置把整个工作空间挂载到 `/omni_ws`，同时挂载宿主机 PulseAudio cookie 和运行目录。已有项目目录、工作空间和 Compose 文件不会被覆盖，后续配置变更直接编辑该 Compose 文件。需要改镜像、增加挂载或调整启动方式时沿用该文件；保持 `workspace` service 和同名 `container_name`，然后重建容器。只有需要多服务或 helper 无法表达的生命周期时才直接使用 Docker Compose 管理扩展配置，仍使用项目专属 Compose project，不加入共享 `navi_project`。不为项目重复构建或重标记派生镜像；只有现有镜像都不能满足明确的镜像层依赖时才增加 Dockerfile，并记录原因。
 - 规划开发环境时，若新功能与现有 `omni_*` project/container 的依赖、用途和生命周期相近，应提醒用户优先在同一项目或容器中扩展，减少功能相似的重复容器。只有环境冲突、独立部署重启、设备权限或资源隔离等边界明确时再拆分。
 - 仅查看任务使用只读命令。发布控制消息、调用状态变更 Service/Action、重启容器或编辑配置需要用户明确要求。
 

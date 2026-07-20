@@ -1,6 +1,6 @@
 # Native ROS Development in Docker
 
-Run native ROS applications in an independent Docker container connected directly to the robot ROS master. On the original Orin host, prefer `naviai_container create` for a blank standalone development container. When persistent mounts, declarative startup, or multiple services are required, keep an optional `compose.yaml` in the owning application directory and directly reuse an existing local image. Do not join new containers to a shared Compose project, and do not build or retag a project-specific derived image by default. Keep persistent source under the host Project directory and large resources under Dataset, Model, and Runs. Use a conventional ROS workspace at `/omni_ws` inside a new container; do not reproduce the host Desktop classification.
+Run native ROS applications in an independent Docker container connected directly to the robot ROS master. On the original Orin host, use `naviai_container create <name> [ssh_port]` as the default new single-container workflow. It creates or reuses the owning project directory, host-persisted `omni_ws`, and `compose.yaml`, then starts the file's `workspace` service with the standard workspace and PulseAudio mounts. Edit that file when another inspected local image, extra mounts, or a different startup command is required. Use Docker Compose directly for multi-service lifecycle management, but do not join new containers to the shared `navi_project` or build or retag a project-specific derived image by default. Keep large resources under Dataset, Model, and Runs. The container sees a conventional ROS workspace at `/omni_ws` and does not reproduce the host Desktop classification.
 
 This page defines a new-project baseline. When working in an existing container, preserve its current workspace path, package layout, mounts, startup mechanism, and setup-source order. Do not retrofit `/omni_ws` or the `omni_*` naming convention unless the user explicitly requests that migration.
 
@@ -22,32 +22,29 @@ Do not treat existing `naviai_*` runtime containers as development workspaces. T
 ## Project and Interface Setup
 
 ```bash
-mkdir -p /home/naviai/Desktop/Project/omni_ward_guide
-mkdir -p /home/naviai/Desktop/Dataset/omni_ward_guide
-mkdir -p /home/naviai/Desktop/Model/omni_ward_guide
-mkdir -p /home/naviai/Desktop/Runs/omni_ward_guide
-cd /home/naviai/Desktop/Project/omni_ward_guide
-mkdir -p ros_src config
+command -v naviai_container
+naviai_container create omni_ward_guide
 ```
 
-These are host directories. `ros_src` contains only package source that must persist or be edited from the host. See `references/paths-and-naming.md` for the full boundary.
+No manual `Project/omni_ward_guide` or `omni_ws` creation is needed. If either directory already exists, the helper reuses it without clearing files. It also creates `Project/omni_ward_guide/compose.yaml` when absent and reuses an existing file without overwriting. Create Dataset, Model, Runs, configuration, or other project paths separately only when the application needs them. See `references/paths-and-naming.md` for the full boundary.
 
 ## Host and Container Layout
 
 | Host Path | Container Path or Role | Purpose |
 |---|---|---|
-| `Desktop/Project/omni_ward_guide/compose.yaml` | Optional Docker/Compose metadata | Project-owned definition used only when persistent mounts or declarative lifecycle are required |
-| `Desktop/Project/omni_ward_guide/ros_src` | `/omni_ws/src` | Persistent ROS package source |
+| `Desktop/Project/omni_ward_guide/compose.yaml` | Compose project definition | Generated or reused by `naviai_container`; edit it for later configuration changes |
+| `Desktop/Project/omni_ward_guide/omni_ws` | `/omni_ws` | Default persistent Catkin workspace, including source and generated products |
+| `Desktop/Project/omni_ward_guide/ros_src` | `/omni_ws/src` | Optional manually designed source-only Compose alternative |
 | `Desktop/Project/omni_ward_guide/config` | `/config` | Optional external configuration |
 | `Desktop/Dataset/<project>` | `/data` | Optional datasets or captured input |
 | `Desktop/Model/<project>` | `/models` | Optional model artifacts |
 | `Desktop/Runs/<project>` | `/runs` | Optional logs and application output |
 
-The container owns `/omni_ws/build` and `/omni_ws/devel`. Keep those generated directories inside the container or a Docker volume. Do not create `/home/naviai/Desktop`, `Project`, `Dataset`, `Model`, or `Runs` inside the container.
+With the default helper, `/omni_ws/build` and `/omni_ws/devel` persist in the host `omni_ws` directory along with package source. A manually designed source-only Compose alternative may keep them in the container or a Docker volume. Do not create `/home/naviai/Desktop`, `Project`, `Dataset`, `Model`, or `Runs` inside the container.
 
 ## Existing Image Selection
 
-When project-owned Compose is required, inspect the exact existing image before adding the service. Reuse its current repository and tag instead of creating a shorter local alias or a project-specific derived image. A blank container created by `naviai_container create` instead uses the fixed local demos image recorded in `references/commands.md`.
+The Compose file initially generated by `naviai_container create` uses the fixed verified demos image recorded in `references/commands.md`. When changing that file to use another runtime, inspect the exact existing image first and reuse its current repository and tag instead of creating a shorter local alias or a project-specific derived image.
 
 ```bash
 docker image inspect \
@@ -68,7 +65,7 @@ The repository prefix displayed by Docker belongs to the image name. It does not
 
 ## Project-Owned compose.yaml
 
-Skip this section when a blank standalone container from `naviai_container create` is sufficient. Use project-owned Compose only when the helper cannot express required mounts or lifecycle configuration.
+Skip this manual example when the generated `naviai_container` Compose file is sufficient. The helper-generated file is already project-owned and is the preferred place for later mount, image, environment, and startup edits. Use a manually designed definition or expand to multiple services only when the generated `workspace` service cannot express the required lifecycle.
 
 ```yaml
 # /home/naviai/Desktop/Project/omni_ward_guide/compose.yaml
@@ -118,18 +115,18 @@ Before adding another project or container, check whether the new component can 
 ## Create and Enter
 
 ```bash
-# Blank standalone development container
+# Default Compose-managed development container
 command -v naviai_container
 naviai_container create omni_ward_guide
 naviai_enter omni_ward_guide
 
-# Or, when the project-owned Compose definition is required
+# After editing the generated Compose file
 cd /home/naviai/Desktop/Project/omni_ward_guide
-docker compose -p omni_ward_guide up -d omni_ward_guide
+docker compose -p omni_ward_guide up -d --force-recreate workspace
 naviai_enter omni_ward_guide
 ```
 
-The helper creates a standalone SSH-enabled environment without bind mounts or Compose labels. The Compose option creates the container directly from the selected existing image; there is no `docker compose build` step. List it with `docker compose -p omni_ward_guide ps -a`. `sleep infinity` is only a development keepalive. With the Compose option, host-mounted package source and optional resources survive container deletion. `/omni_ws/build` and `/omni_ws/devel` are generated container workspace products.
+The helper generates or reuses `compose.yaml` and actually creates its `workspace` service, so the container has Compose labels from the first start. The default file includes the whole `/omni_ws` and PulseAudio mounts and uses the fixed local image without a build step. Existing Compose edits are not overwritten. Keep service name `workspace`, `container_name: omni_ward_guide`, and numeric `NAVIAI_SSH_PORT` when the helper will be used again. List the service with `docker compose -p omni_ward_guide ps -a`. Host workspace source, `build`, and `devel` products survive container deletion.
 
 ## Create a ROS Package
 
@@ -172,7 +169,7 @@ If names are visible but a connection reports `jzrobot-a: Name or service not kn
 
 If a container shows fewer Topics than expected, first verify its sourced ROS setup, `ROS_MASTER_URI`, `ROS_IP` or `ROS_HOSTNAME`, and hostname mappings against a known-working container. A wrong master can expose a different ROS graph; a wrong callback address can make a Topic visible but unreadable. Do not conclude that a publisher is missing until these settings are correct.
 
-Reading ROS Topics does not require privileged mode, NVIDIA runtime, or `/dev`. Add GPU, USB, display, or device access only for a program that directly needs it.
+Reading ROS Topics itself does not require privileged mode, NVIDIA runtime, or `/dev`, although the fixed helper-generated default includes privileged mode and the NVIDIA runtime to match the demos environment. A manually designed Compose alternative should add GPU, USB, display, or device access only when the program directly needs it.
 
 ## Persistent Node Startup
 
@@ -191,11 +188,11 @@ command:
 Keep `restart: unless-stopped`. Compose manages container restart; roslaunch manages this application's nodes. A single launch entry normally does not need supervisor. Use a project-owned supervisor only for multiple independent processes requiring separate restart behavior.
 
 ```bash
-docker compose -p omni_ward_guide up -d omni_ward_guide
-docker compose -p omni_ward_guide stop omni_ward_guide
+docker compose -p omni_ward_guide up -d workspace
+docker compose -p omni_ward_guide stop workspace
 ```
 
-Use `naviai_container remove <container>` for a standalone helper-created container. A Compose service can be recreated without changing its bind-mounted project data with `docker compose -p omni_ward_guide up -d --force-recreate <service>`.
+Use `naviai_container remove <container>` to remove only the helper-created container; its project, `omni_ws`, and `compose.yaml` remain. Recreate it after configuration changes with `naviai_container create <name>`, or directly run `docker compose -p omni_ward_guide up -d --force-recreate workspace` without changing bind-mounted project data.
 
 ## Other Lab Servers
 
@@ -211,16 +208,16 @@ For a remote native ROS container, set `ROS_IP` to an address robot nodes can re
 Apply this checklist to newly created projects. For an existing project, first follow its established structure and change it only when the user explicitly asks.
 
 1. Project lives at `/home/naviai/Desktop/Project/omni_<business>`.
-2. A blank standalone container is created with `naviai_container create`; if persistence or declarative lifecycle is required, its optional Compose definition lives in the owning project directory.
+2. Run `naviai_container create omni_<business>` by default; it creates or reuses the project directory, persistent `omni_ws`, and project-owned `compose.yaml`, then starts service `workspace`.
 3. Container names use `omni_` and do not occupy `naviai_*` names.
-4. The new container uses `/omni_ws`; a standalone container creates it internally, while project-owned Compose mounts host `ros_src` at `/omni_ws/src` when persistence is required.
-5. A Compose service directly references an existing, inspected image with its exact repository and tag; the standalone helper uses its fixed local demos image. Neither path creates a project-specific derived image by default.
+4. The new container uses `/omni_ws`, backed by host `Project/<name>/omni_ws` as a read-write whole-workspace mount. A source-only `ros_src` mount is an explicit manually designed Compose alternative.
+5. The generated Compose file uses the helper's fixed verified demos image. If the file is edited to use another image, reference an existing inspected image by its exact repository and tag. Neither path creates a project-specific derived image by default.
 6. ROS package, node, and application interfaces share the project prefix.
 7. Host networking, ROS master, ROS IP, and hostname mappings are correct.
 8. Host Dataset, Model, and Runs directories mount only when the node needs them, at simple paths such as `/data`, `/models`, and `/runs`.
 9. No Desktop or Project/Dataset/Model/Runs hierarchy is created inside the container.
-10. Privileged, GPU, and device access are absent unless needed.
-11. Persistent apps use `restart: unless-stopped` and a real launch entry.
+10. The helper-generated default includes privileged mode and the NVIDIA runtime. A manually designed Compose alternative should add privileged, GPU, and device access only when needed.
+11. The generated service uses `restart: unless-stopped`; persistent apps replace the SSH development startup only when a real launch entry is ready.
 12. Control nodes implement timeout, cancellation, shutdown stop, and control ownership.
 13. A new container is introduced only when the existing project or container cannot reasonably own the component.
-14. New containers do not join a shared Compose project; when Compose is needed, commands explicitly pass an application-specific `-p omni_<business>` name.
+14. New containers do not join a shared Compose project; helper-generated and manually run Compose commands use the application-specific `omni_<business>` project name.

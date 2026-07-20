@@ -34,7 +34,7 @@ All normal knowledge dependencies are inside this Skill. Select the narrowest re
 |---|---|
 | `development-reference.md` | comparison of rosbridge and native ROS environments |
 | `rosbridge-development.md` | endpoints, JavaScript/Python clients, Topic/Service/Action, rosapi |
-| `docker-ros-development.md` | standalone container creation, optional project-owned Compose, existing-image selection, Catkin, startup |
+| `docker-ros-development.md` | helper-generated project/omni_ws/Compose flow, existing-image selection, Catkin, startup, and multi-service alternatives |
 | `paths-and-naming.md` | host Desktop classification, project ownership, new-container `/omni_ws` default, existing-layout precedence, naming, mounts |
 | `commands.md` | original Orin host commands, availability boundary, and side effects |
 | `typical-trajectories.md` | optional reference paths for common tasks |

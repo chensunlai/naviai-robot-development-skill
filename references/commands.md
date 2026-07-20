@@ -30,7 +30,7 @@ Important implementation details:
 - `llm_remove_pkg` uses `rm -rf` without confirmation and deletes source, data, models, and results together.
 - `setup` overwrites generated `Tools/llm_*` scripts and writes the PATH entry to `.bashrc` under the directory from which it runs. It does not automatically modify the actual `~/.bashrc` unless it runs from the home directory. This machine's real `~/.bashrc` already adds `Desktop/Tools` separately.
 
-Typical new-project command: run `cd /home/naviai/Desktop/Project`, then `llm_create_pkg omni_ward_guide`. This creates a host-side classification only. Do not run it inside a container or reproduce its Desktop layout there; newly created native ROS containers default to `/omni_ws`.
+For a new single-container ROS project, use `naviai_container create omni_ward_guide`; it creates the minimal host project, persisted `omni_ws`, and Compose definition together. Use `llm_create_pkg` only when the separate Dataset/Model/Runs classification and links are required and the project path does not already exist, because that helper does not handle an existing target safely. Do not run either project helper inside a container or reproduce the Desktop classification there.
 
 ## Container Tools
 
@@ -43,22 +43,35 @@ Typical new-project command: run `cd /home/naviai/Desktop/Project`, then `llm_cr
 | `naviai_copy -r <container> <container-path> <local-path>` | Copy from the container to the host with `docker cp` |
 | `naviai_hosts ls` | List every container name and state |
 | `naviai_hosts <container>` | Add `jzrobot-a` and `pico.zjrx.com` entries to the container `/etc/hosts` |
-| `naviai_container create <name> [ssh_port]` | Create and start one blank development container from the fixed local image `10.51.33.201:30002/navi_project/demos:v1.0.2`; omit `ssh_port` to select a currently unused random port from `20000-65535` |
+| `naviai_container create <name> [ssh_port]` | Reuse or create `/home/naviai/Desktop/Project/<name>/omni_ws` and `compose.yaml`, then use its `workspace` service to create the container with the whole-workspace and PulseAudio mounts; a new Compose file defaults to `10.51.33.201:30002/navi_project/demos:v1.0.2`, and omitting `ssh_port` selects an unused random port for a new file |
 | `naviai_container remove <container>` | Force-remove exactly one named non-official container; an official container is rejected even when addressed by container ID |
 
 `naviai_enter`, `naviai_copy`, and `naviai_hosts` reuse existing containers. `naviai_hosts` skips a hostname that already exists and does not validate or correct its IP. Changes disappear when the container is recreated. Use Compose `extra_hosts` for a persistent application container.
 
 `naviai_container create` has these implementation boundaries:
 
-- It is pinned to local image `10.51.33.201:30002/navi_project/demos:v1.0.2` with expected image ID `sha256:a29db54844c1db6e3f61e856b9713d0de5c8b55f0493bc1a0985406b2a573e38`. It verifies both before running with `--pull never`; it neither builds nor downloads an image and does not derive the image from `naviai_demos`.
-- It uses the image's built-in Ubuntu 20.04 environment, root account, sshd, and supervisor. It runs with host networking, the NVIDIA runtime, privileged mode, the robot hostname mappings, and the observed ROS master and host IP values.
-- With no port argument it selects a currently non-listening random host port in `20000-65535`; an explicit port remains supported. The selected port becomes sshd's actual listen port because host networking does not use Docker port publishing.
+- New names must match lowercase Compose-compatible form `[a-z0-9][a-z0-9_-]*`. Docker Compose must be available.
+- When no Compose file exists, it verifies local image `10.51.33.201:30002/navi_project/demos:v1.0.2` against expected image ID `sha256:a29db54844c1db6e3f61e856b9713d0de5c8b55f0493bc1a0985406b2a573e38`, generates `Project/<name>/compose.yaml` with `pull_policy: never`, and neither builds nor downloads an image. The generated default uses the image's Ubuntu 20.04 environment, root account, sshd, supervisor, host networking, NVIDIA runtime, privileged mode, robot hostname mappings, and recorded ROS master and host IP.
+- The generated Compose file has project name and `container_name` equal to `<name>` and service name `workspace`. If the file already exists, the helper validates and reuses it without overwriting, so edited image, mount, environment, and startup settings become the source of truth. Keep the `workspace` service, the same `container_name`, and a numeric `NAVIAI_SSH_PORT` so the helper can validate startup.
+- When generating a new Compose file, omitting the port selects a currently non-listening random host port in `20000-65535`; an explicit port remains supported. The selected port becomes sshd's actual listen port because host networking does not use Docker port publishing.
+- When reusing an existing Compose file, the helper does not select a new port: it reads `NAVIAI_SSH_PORT` from the `workspace` service. If an explicit command-line port differs, it refuses the request and directs the user to edit the Compose file.
 - The resulting command is `ssh -p <selected-port> root@localhost`. Authentication state comes from the fixed demos image; the helper does not create a new password or SSH key.
-- The container uses `restart: unless-stopped`. A failed sshd startup is treated transactionally: the helper prints recent logs and removes only the failed new container.
+- The project path is fixed at `/home/naviai/Desktop/Project/<name>`. If the project directory, `omni_ws`, or Compose file already exists, the helper reuses it without recreating, clearing, or overwriting files. Missing paths are created.
+- It creates these bind mounts:
 
-`naviai_container create` creates a standalone blank development container. It does not add bind mounts or Compose labels. Prefer it when those features are unnecessary. When persistent bind mounts, declarative startup, or multi-service lifecycle management are required, keep an optional project-owned `compose.yaml` in the application directory, directly reference the inspected existing image, and use a project-specific Compose name. There is no requirement to join a shared Compose project; this case has no matching custom helper, so native Docker Compose is appropriate.
+  | Host | Container | Access |
+  |---|---|---|
+  | `/home/naviai/Desktop/Project/<name>/omni_ws` | `/omni_ws` | read-write |
+  | `/home/naviai/.config/pulse/cookie` | `/root/.config/pulse/cookie` | read-only |
+  | `/run/user/1000/pulse` | `/run/user/1000/pulse` | read-write |
+
+- Creation requires the PulseAudio cookie to be readable and the runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
+
+`naviai_container create` is the default new single-container workflow. It creates a Compose-managed SSH development environment with the three generated mounts above. Edit the generated project-owned `compose.yaml` for additional mounts, another inspected local image, or a different startup command. After editing, use `docker compose -p <name> -f Project/<name>/compose.yaml up -d --force-recreate workspace`, or remove the container and run `naviai_container create <name>` again. Multi-service applications may extend the project file and use Docker Compose directly; they do not join the shared `navi_project`.
 
 `naviai_container remove` resolves the supplied name or ID to the container's current canonical name, refuses names in its protected official snapshot, and then calls `docker rm --force` for that one container. The snapshot includes all containers present when the snapshot was taken, including exited `test_rosenv`: `naviai_chassis`, `naviai_demos`, `naviai_map_server`, `naviai_navbrain_ros`, `naviai_navigation`, `naviai_novnc`, `naviai_nviz`, `naviai_perception`, `naviai_robot`, `naviai_robot_viewer`, `naviai_rosbridge`, `naviai_sensor`, `naviai_sensor_lidar`, and `test_rosenv`. It has no bulk-delete command.
+
+Removing a helper-created container does not remove its host project directory, `omni_ws` contents, or `compose.yaml`.
 
 Useful companion queries:
 
