@@ -83,11 +83,11 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
     source /omni_ws/devel/setup.bash
   fi
 
-  export ROS_MASTER_URI="${ROS_MASTER_URI:-http://192.168.217.1:11311}"
+  export ROS_MASTER_URI="http://192.168.217.1:11311"
   export ROS_IP="${ROS_IP:-192.168.217.100}"
   ```
 
-  The conditional workspace source avoids errors before the first Catkin build. Appending the managed block after the image's existing shell setup makes `/omni_ws` the final ROS overlay when its setup file exists. The fallback exports preserve values already injected by Compose. Direct Compose creation bypasses this `.bashrc` initialization.
+  The conditional workspace source avoids errors before the first Catkin build. Appending the managed block after the image's existing shell setup makes `/omni_ws` the final ROS overlay when its setup file exists. `ROS_MASTER_URI` is forced after sourcing so an image-provided `http://localhost:11311` cannot redirect the shell to a container-local graph; `ROS_IP` keeps its fallback behavior. Direct Compose creation bypasses this `.bashrc` initialization.
 
 - Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, bootstrap-copy, `.bashrc` initialization, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
 
