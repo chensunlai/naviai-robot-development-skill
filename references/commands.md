@@ -7,7 +7,7 @@ This page documents custom commands installed on the original Orin host under `/
 | Category | Typical Commands | Meaning |
 |---|---|---|
 | Read-only query | `docker ps`, `docker top`, `naviai_topic info` | Inspect state without intentionally changing files or robot state |
-| State change | `naviai_hosts`, `naviai_container create`, mapping/map-selection tools, Service/Action controls, container start/stop | Modify files, containers, or robot runtime state |
+| State change | `naviai_hosts`, `naviai_sync`, `naviai_container create`, mapping/map-selection tools, Service/Action controls, container start/stop | Modify files, containers, or robot runtime state |
 | Data deletion | `llm_remove_pkg`, `naviai_container remove` | Delete project data or a selected non-official container |
 
 `docker exec`, `naviai_enter`, and `naviai_service` are not inherently read-only or state-changing. Their effect depends on the command or Service used afterward.
@@ -43,10 +43,22 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
 | `naviai_copy -r <container> <container-path> <local-path>` | Copy from the container to the host with `docker cp` |
 | `naviai_hosts ls` | List every container name and state |
 | `naviai_hosts <container>` | Add `jzrobot-a` and `pico.zjrx.com` entries to the container `/etc/hosts` |
-| `naviai_container create <name> [ssh_port]` | Reuse or create `/home/naviai/Desktop/Project/<name>/omni_ws` and `compose.yaml`, then use its `workspace` service to create the container with the whole-workspace and PulseAudio mounts and copy the host SSH/Codex bootstrap files; a new Compose file defaults to `10.51.33.201:30002/navi_project/demos:v1.0.2`, and omitting `ssh_port` selects an unused random port for a new file |
+| `naviai_sync ls` | List container names, states, and images |
+| `naviai_sync <container>` | Merge and deduplicate host `authorized_keys` into one running container, overwrite-sync host Codex `config.toml` and `auth.json`, set secure root permissions, and verify without printing contents or checksums |
+| `naviai_container create <name> [ssh_port]` | Reuse or create `/home/naviai/Desktop/Project/<name>/omni_ws` and `compose.yaml`, then use its `workspace` service to create the container with the whole-workspace and PulseAudio mounts and invoke `naviai_sync`; a new Compose file defaults to `10.51.33.201:30002/navi_project/demos:v1.0.2`, and omitting `ssh_port` selects an unused random port for a new file |
 | `naviai_container remove <container>` | Force-remove exactly one named non-official container; an official container is rejected even when addressed by container ID |
 
 `naviai_enter`, `naviai_copy`, and `naviai_hosts` reuse existing containers. `naviai_hosts` skips a hostname that already exists and does not validate or correct its IP. Changes disappear when the container is recreated. Use Compose `extra_hosts` for a persistent application container.
+
+`naviai_sync` is a host-only, explicit one-container state change. The target must exist and be running. It stages all three readable host sources in a temporary container directory before installing them:
+
+| Host Source | Container Destination | Behavior |
+|---|---|---|
+| `/home/naviai/.ssh/authorized_keys` | `/root/.ssh/authorized_keys` | Keep existing non-empty lines first, append only host lines not already present, and deduplicate the final file by exact non-empty line |
+| `/home/naviai/.codex/config.toml` | `/root/.codex/config.toml` | Overwrite with the host file |
+| `/home/naviai/.codex/auth.json` | `/root/.codex/auth.json` | Overwrite with the host file |
+
+It installs `/root/.ssh` and `/root/.codex` as root-owned mode `0700`, installs all three files as root-owned mode `0600`, verifies staged and final exact-copy files using SHA-256 comparisons without printing hashes, verifies the merged `authorized_keys` against the generated merged file, and removes the temporary staging directory. A failure returns nonzero. It does not update `.bashrc`, restart the target, or modify host files.
 
 `naviai_container create` has these implementation boundaries:
 
@@ -65,7 +77,7 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
   | `/home/naviai/.config/pulse/cookie` | `/root/.config/pulse/cookie` | read-only |
   | `/run/user/1000/pulse` | `/run/user/1000/pulse` | read-write |
 
-- After Compose creates the container, the helper copies these host files into writable container paths with `docker cp` and applies root ownership with directory mode `0700` and file mode `0600`:
+- After Compose creates the container, the helper invokes `naviai_sync` for these host and container paths:
 
   | Host Source | Container Destination |
   |---|---|
@@ -73,9 +85,9 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
   | `/home/naviai/.codex/config.toml` | `/root/.codex/config.toml` |
   | `/home/naviai/.codex/auth.json` | `/root/.codex/auth.json` |
 
-  Credential contents are not written into `compose.yaml`. This copy is a `naviai_container create` post-create step for both new and existing Compose files. Directly running `docker compose up` bypasses it; use the helper when a recreated container must receive the current host files.
+  Credential contents are not written into `compose.yaml`. This synchronization is a `naviai_container create` post-create step for both new and existing Compose files. Directly running `docker compose up` bypasses it; run `naviai_sync <container>` explicitly or use the helper when a recreated container must receive the current host files.
 
-- After the copy, the helper removes any previous `naviai_container`-managed ROS block from `/root/.bashrc` and appends exactly one current block:
+- After synchronization, the helper removes any previous `naviai_container`-managed ROS block from `/root/.bashrc` and appends exactly one current block:
 
   ```bash
   source /opt/ros/noetic/setup.bash
@@ -89,7 +101,7 @@ For a new single-container ROS project, use `naviai_container create omni_ward_g
 
   The conditional workspace source avoids errors before the first Catkin build. Appending the managed block after the image's existing shell setup makes `/omni_ws` the final ROS overlay when its setup file exists. `ROS_MASTER_URI` is forced after sourcing so an image-provided `http://localhost:11311` cannot redirect the shell to a container-local graph; `ROS_IP` keeps its fallback behavior. Direct Compose creation bypasses this `.bashrc` initialization.
 
-- Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, bootstrap-copy, `.bashrc` initialization, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
+- Creation requires the PulseAudio cookie, `authorized_keys`, Codex config, and Codex auth files to be readable and the PulseAudio runtime directory to exist. The generated container uses `restart: unless-stopped`. A failed Compose, `naviai_sync`, `.bashrc` initialization, or sshd startup removes the failed container and removes only the Compose file and empty project paths created by that invocation; pre-existing files and non-empty data are retained.
 
 `naviai_container create` is the default new single-container workflow. It creates a Compose-managed SSH development environment with the three generated mounts above. Edit the generated project-owned `compose.yaml` for additional mounts, another inspected local image, or a different startup command. After editing, use `docker compose -p <name> -f Project/<name>/compose.yaml up -d --force-recreate workspace`, or remove the container and run `naviai_container create <name>` again. Multi-service applications may extend the project file and use Docker Compose directly; they do not join the shared `navi_project`.
 
